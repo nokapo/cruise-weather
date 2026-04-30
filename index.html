@@ -4,19 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MSCベリッシマ(5/4発) 天気予報パネル</title>
-    <!-- Tailwind CSS (デザイン用) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Phosphor Icons (アイコン用) -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
         body { font-family: 'Noto Sans JP', sans-serif; }
         .hidden-content { display: none; }
+        /* スクロールバー非表示（タイムライン用） */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 pb-20">
 
-    <!-- Header -->
     <header class="bg-blue-900 text-white p-6 shadow-md rounded-b-3xl">
         <div class="max-w-4xl mx-auto flex items-center justify-between">
             <div>
@@ -33,10 +33,8 @@
         </div>
     </header>
 
-    <!-- Main Content -->
     <main class="max-w-4xl mx-auto p-4 sm:p-6 mt-4">
         
-        <!-- Header Section -->
         <div class="flex flex-col sm:flex-row sm:items-end justify-between mb-6 gap-2">
             <h2 class="text-xl font-bold flex items-center gap-2 text-slate-700">
                 <i class="ph-fill ph-map-pin text-2xl text-blue-600"></i>
@@ -48,20 +46,16 @@
             </div>
         </div>
 
-        <!-- Loading state -->
         <div id="loading" class="flex flex-col items-center justify-center py-20">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
             <p class="text-slate-500">気象データを取得中...</p>
         </div>
 
-        <!-- Weather Grid -->
         <div id="weatherGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 hidden-content">
-            <!-- パネルがここにJavaScriptで生成されます -->
-        </div>
+            </div>
 
     </main>
 
-    <!-- Footer / データ取得元切替 -->
     <footer class="mt-8 mb-4 px-4 text-center">
         <div class="flex flex-col items-center justify-center gap-3 mb-3">
             <span class="text-sm font-semibold text-slate-700">データ取得元を切り替え：</span>
@@ -75,7 +69,7 @@
             </div>
         </div>
         <p class="text-xs text-slate-500">
-            ※データが取得できない場合（予報期間外や、気象庁を選択時の海外エリア等）は、各パネル内に理由が表示されます。
+            ※気象庁データは時間ごとのタイムラインに対応していません。
         </p>
     </footer>
 
@@ -93,81 +87,56 @@
 
         let currentSource = 'open-meteo';
 
-        // アイコンとテキストの変換 (Open-Meteo)
         function getOpenMeteoInfo(code) {
-            if (code === 0) return { label: '快晴', icon: 'ph-sun', color: 'text-orange-500' };
-            if (code === 1 || code === 2 || code === 3) return { label: '晴れ/曇り', icon: 'ph-cloud-sun', color: 'text-slate-500' };
-            if (code === 45 || code === 48) return { label: '霧', icon: 'ph-cloud-fog', color: 'text-slate-400' };
-            if (code >= 51 && code <= 67) return { label: '雨', icon: 'ph-cloud-rain', color: 'text-blue-500' };
-            if (code >= 71 && code <= 82) return { label: '雪', icon: 'ph-snowflake', color: 'text-blue-300' };
-            if (code >= 95) return { label: '雷雨', icon: 'ph-cloud-lightning', color: 'text-yellow-600' };
-            return { label: '不明', icon: 'ph-cloud', color: 'text-slate-400' };
+            if (code === 0) return { label: '快晴', icon: 'ph-fill ph-sun', color: 'text-orange-500' };
+            if (code === 1 || code === 2 || code === 3) return { label: '晴れ/曇り', icon: 'ph-fill ph-cloud-sun', color: 'text-slate-500' };
+            if (code === 45 || code === 48) return { label: '霧', icon: 'ph-fill ph-cloud-fog', color: 'text-slate-400' };
+            if (code >= 51 && code <= 67) return { label: '雨', icon: 'ph-fill ph-cloud-rain', color: 'text-blue-500' };
+            if (code >= 71 && code <= 82) return { label: '雪', icon: 'ph-fill ph-snowflake', color: 'text-blue-300' };
+            if (code >= 95) return { label: '雷雨', icon: 'ph-fill ph-cloud-lightning', color: 'text-yellow-600' };
+            return { label: '不明', icon: 'ph-fill ph-cloud', color: 'text-slate-400' };
         }
 
-        // アイコンとテキストの変換 (気象庁)
         function getJMAInfo(codeStr) {
             const code = parseInt(codeStr, 10);
-            if (isNaN(code)) return { label: '不明', icon: 'ph-cloud', color: 'text-slate-400' };
-            
+            if (isNaN(code)) return { label: '不明', icon: 'ph-fill ph-cloud', color: 'text-slate-400' };
             if (code >= 100 && code < 200) {
-                if (code === 100) return { label: '晴れ', icon: 'ph-sun', color: 'text-orange-500' };
-                if (code === 101 || code === 132) return { label: '晴れ時々曇り', icon: 'ph-cloud-sun', color: 'text-slate-500' };
-                if (code >= 112 && code <= 114) return { label: '晴れのち雨/雪', icon: 'ph-cloud-rain', color: 'text-blue-500' };
-                return { label: '晴れ', icon: 'ph-sun', color: 'text-orange-500' };
+                if (code === 100) return { label: '晴れ', icon: 'ph-fill ph-sun', color: 'text-orange-500' };
+                if (code === 101 || code === 132) return { label: '晴時々曇', icon: 'ph-fill ph-cloud-sun', color: 'text-slate-500' };
+                if (code >= 112 && code <= 114) return { label: '晴のち雨', icon: 'ph-fill ph-cloud-rain', color: 'text-blue-500' };
+                return { label: '晴れ', icon: 'ph-fill ph-sun', color: 'text-orange-500' };
             }
             if (code >= 200 && code < 300) {
-                if (code === 200) return { label: '曇り', icon: 'ph-cloud', color: 'text-slate-400' };
-                if (code === 201 || code === 231) return { label: '曇り時々晴れ', icon: 'ph-cloud-sun', color: 'text-slate-500' };
-                if (code >= 212 && code <= 214) return { label: '曇れのち雨/雪', icon: 'ph-cloud-rain', color: 'text-blue-500' };
-                return { label: '曇り', icon: 'ph-cloud', color: 'text-slate-400' };
+                if (code === 200) return { label: '曇り', icon: 'ph-fill ph-cloud', color: 'text-slate-400' };
+                if (code === 201 || code === 231) return { label: '曇時々晴', icon: 'ph-fill ph-cloud-sun', color: 'text-slate-500' };
+                if (code >= 212 && code <= 214) return { label: '曇のち雨', icon: 'ph-fill ph-cloud-rain', color: 'text-blue-500' };
+                return { label: '曇り', icon: 'ph-fill ph-cloud', color: 'text-slate-400' };
             }
-            if (code >= 300 && code < 400) {
-                if (code >= 314) return { label: '雨のち雪', icon: 'ph-snowflake', color: 'text-blue-300' };
-                return { label: '雨', icon: 'ph-cloud-rain', color: 'text-blue-500' };
-            }
-            if (code >= 400 && code < 500) {
-                return { label: '雪', icon: 'ph-snowflake', color: 'text-blue-300' };
-            }
-            return { label: '不明', icon: 'ph-cloud', color: 'text-slate-400' };
+            if (code >= 300 && code < 400) return { label: '雨', icon: 'ph-fill ph-cloud-rain', color: 'text-blue-500' };
+            if (code >= 400 && code < 500) return { label: '雪', icon: 'ph-fill ph-snowflake', color: 'text-blue-300' };
+            return { label: '不明', icon: 'ph-fill ph-cloud', color: 'text-slate-400' };
         }
 
-        // 日付フォーマット
         function formatDate(dateStr) {
             const d = new Date(dateStr);
             const days = ['日', '月', '火', '水', '木', '金', '土'];
             return `${d.getMonth() + 1}月${d.getDate()}日(${days[d.getDay()]})`;
         }
 
-        // 更新日時フォーマット
-        function formatTime(date) {
-            return date.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-        }
-
-        // ソース切り替え
         function changeSource(source) {
             currentSource = source;
-            
-            // ボタンの見た目変更
-            const btnOpenMeteo = document.getElementById('btn-open-meteo');
-            const btnJMA = document.getElementById('btn-jma');
-            
-            if (source === 'open-meteo') {
-                btnOpenMeteo.className = "px-4 py-2 text-sm font-medium border rounded-l-lg transition-colors bg-blue-600 text-white border-blue-600 z-10";
-                btnJMA.className = "px-4 py-2 text-sm font-medium border-t border-b border-r rounded-r-lg transition-colors bg-white text-slate-700 border-slate-200 hover:bg-slate-50";
-            } else {
-                btnOpenMeteo.className = "px-4 py-2 text-sm font-medium border rounded-l-lg transition-colors bg-white text-slate-700 border-slate-200 hover:bg-slate-50";
-                btnJMA.className = "px-4 py-2 text-sm font-medium border-t border-b border-r rounded-r-lg transition-colors bg-blue-600 text-white border-blue-600 z-10";
-            }
-            
+            document.getElementById('btn-open-meteo').className = source === 'open-meteo' 
+                ? "px-4 py-2 text-sm font-medium border rounded-l-lg transition-colors bg-blue-600 text-white border-blue-600 z-10" 
+                : "px-4 py-2 text-sm font-medium border rounded-l-lg transition-colors bg-white text-slate-700 border-slate-200 hover:bg-slate-50";
+            document.getElementById('btn-jma').className = source === 'jma' 
+                ? "px-4 py-2 text-sm font-medium border-t border-b border-r rounded-r-lg transition-colors bg-blue-600 text-white border-blue-600 z-10" 
+                : "px-4 py-2 text-sm font-medium border-t border-b border-r rounded-r-lg transition-colors bg-white text-slate-700 border-slate-200 hover:bg-slate-50";
             fetchWeather();
         }
 
-        // 天気データ取得
         async function fetchWeather() {
             document.getElementById('loading').style.display = 'flex';
             document.getElementById('weatherGrid').style.display = 'none';
-            document.getElementById('lastUpdated').style.display = 'none';
-            
             const grid = document.getElementById('weatherGrid');
             grid.innerHTML = '';
 
@@ -179,31 +148,48 @@
                         item.available = false;
                     } else if (currentSource === 'open-meteo') {
                         if (!item.lat) {
-                            item.available = false;
-                            item.error = '位置情報なし';
+                            item.available = false; item.error = '位置情報なし';
                         } else {
-                            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${item.lat}&longitude=${item.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo&forecast_days=16`);
+                            // hourlyデータを追加で取得
+                            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${item.lat}&longitude=${item.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&hourly=temperature_2m,precipitation_probability,weather_code&timezone=Asia%2FTokyo&forecast_days=16`);
                             const data = await res.json();
                             const dateIndex = data.daily.time.findIndex(t => t === item.date);
+                            
                             if (dateIndex !== -1) {
                                 item.weatherCode = data.daily.weather_code[dateIndex];
                                 item.maxTemp = Math.round(data.daily.temperature_2m_max[dateIndex]);
                                 item.minTemp = Math.round(data.daily.temperature_2m_min[dateIndex]);
+                                item.pop = data.daily.precipitation_probability_max[dateIndex];
                                 item.available = true;
+
+                                // タイムライン用の時間帯データ抽出 (6, 9, 12, 15, 18, 21時)
+                                item.timeline = [];
+                                const targetHours = ['06:00', '09:00', '12:00', '15:00', '18:00', '21:00'];
+                                data.hourly.time.forEach((t, i) => {
+                                    if (t.startsWith(item.date)) {
+                                        const hour = t.split('T')[1];
+                                        if (targetHours.includes(hour)) {
+                                            item.timeline.push({
+                                                time: hour.slice(0, 5),
+                                                temp: Math.round(data.hourly.temperature_2m[i]),
+                                                pop: data.hourly.precipitation_probability[i],
+                                                code: data.hourly.weather_code[i]
+                                            });
+                                        }
+                                    }
+                                });
                             } else {
-                                item.available = false;
-                                item.error = '予報期間外';
+                                item.available = false; item.error = '予報期間外';
                             }
                         }
                     } else {
-                        // JMA
+                        // JMA (タイムラインなし)
                         if (!item.jmaAreaCode) {
-                            item.available = false;
-                            item.error = '日本国外のため取得不可';
+                            item.available = false; item.error = '日本国外のため取得不可';
                         } else {
                             const res = await fetch(`https://www.jma.go.jp/bosai/forecast/data/forecast/${item.jmaAreaCode}.json`);
                             const data = await res.json();
-                            let wCode = null, min = '--', max = '--';
+                            let wCode = null, min = '--', max = '--', pop = '--';
                             
                             data.forEach(report => {
                                 report.timeSeries.forEach(ts => {
@@ -213,30 +199,26 @@
                                         if (area.weatherCodes && !wCode) wCode = area.weatherCodes[idx];
                                         if (area.tempsMin && area.tempsMin[idx] !== "") min = area.tempsMin[idx];
                                         if (area.tempsMax && area.tempsMax[idx] !== "") max = area.tempsMax[idx];
+                                        if (area.pops && area.pops[idx] !== "") pop = area.pops[idx];
                                     }
                                 });
                             });
                             
                             if (wCode) {
                                 item.weatherCode = wCode;
-                                item.maxTemp = max;
-                                item.minTemp = min;
+                                item.maxTemp = max; item.minTemp = min;
+                                item.pop = pop;
                                 item.available = true;
                             } else {
-                                item.available = false;
-                                item.error = '予報期間外 (発表前)';
+                                item.available = false; item.error = '予報期間外 (発表前)';
                             }
                         }
                     }
-                    
                     renderPanel(item);
                 }
-                
-                document.getElementById('updatedTimeText').innerText = `更新日時: ${formatTime(new Date())}`;
-                
+                document.getElementById('updatedTimeText').innerText = `更新日時: ${new Date().toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
             } catch (error) {
-                console.error(error);
-                grid.innerHTML = '<p class="text-red-500 col-span-full text-center">データの取得に失敗しました。少し時間をおいてから再読み込みしてください。</p>';
+                grid.innerHTML = '<p class="text-red-500 col-span-full text-center">データの取得に失敗しました。再読み込みしてください。</p>';
             } finally {
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('weatherGrid').style.display = 'grid';
@@ -244,69 +226,88 @@
             }
         }
 
-        // パネルの描画
         function renderPanel(item) {
             const grid = document.getElementById('weatherGrid');
             const info = item.available ? (currentSource === 'open-meteo' ? getOpenMeteoInfo(item.weatherCode) : getJMAInfo(item.weatherCode)) : null;
             
-            const typeLabel = item.type === 'embark' ? '出港' : item.type === 'debark' ? '入港' : '寄港';
-            const typeBadge = item.type !== 'sea' ? `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium h-fit">${typeLabel}</span>` : '';
-            
+            const typeBadge = item.type !== 'sea' ? `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium h-fit">${item.type === 'embark' ? '出港' : item.type === 'debark' ? '入港' : '寄港'}</span>` : '';
             const bgDecor = item.type === 'sea' ? `<div class="absolute -right-4 -top-4 opacity-5"><i class="ph-fill ph-anchor text-9xl"></i></div>` : '';
             
             let contentHtml = '';
+            let timelineHtml = '';
+
             if (item.type === 'sea') {
-                contentHtml = `<div class="flex items-center justify-center py-2 text-slate-400"><p>終日クルージング</p></div>`;
+                contentHtml = `<div class="flex items-center justify-center py-6 text-slate-400"><p>終日クルージング</p></div>`;
             } else if (item.available) {
-                const maxUnit = item.maxTemp !== '--' ? '°C' : '';
-                const minUnit = item.minTemp !== '--' ? '°C' : '';
+                // Timeline Generation (Open-Meteo only)
+                if (item.timeline && item.timeline.length > 0) {
+                    const blocks = item.timeline.map(t => {
+                        const tInfo = getOpenMeteoInfo(t.code);
+                        return `
+                            <div class="flex flex-col items-center min-w-[50px]">
+                                <span class="text-[10px] text-slate-500 mb-1">${t.time}</span>
+                                <i class="${tInfo.icon} text-2xl ${tInfo.color} mb-1"></i>
+                                <span class="text-xs font-bold text-slate-700">${t.temp}°</span>
+                                <span class="text-[10px] font-bold text-blue-500">${t.pop}%</span>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    timelineHtml = `
+                        <div class="mt-5 pt-4 border-t border-slate-100">
+                            <div class="flex overflow-x-auto gap-3 pb-2 no-scrollbar">
+                                ${blocks}
+                            </div>
+                        </div>
+                    `;
+                }
+
                 contentHtml = `
                     <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <i class="${info.icon} text-4xl ${info.color}"></i>
-                            <span class="font-medium text-slate-700">${info.label}</span>
+                        <div class="flex flex-col items-start gap-1">
+                            <div class="flex items-center gap-3">
+                                <i class="${info.icon} text-5xl ${info.color}"></i>
+                                <div>
+                                    <span class="block font-bold text-slate-700 text-lg">${info.label}</span>
+                                    <div class="flex items-center gap-1 text-sm font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded mt-1 w-fit">
+                                        <i class="ph-fill ph-drop"></i>
+                                        <span>${item.pop !== '--' && item.pop !== undefined ? item.pop + '%' : '--%'}</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div class="text-right">
-                            <div class="text-xl font-bold text-slate-800">
-                                <span class="text-red-500">${item.maxTemp}${maxUnit}</span>
-                                <span class="text-slate-300 mx-1">/</span>
-                                <span class="text-blue-500">${item.minTemp}${minUnit}</span>
+                            <div class="text-3xl font-bold tracking-tighter">
+                                <span class="text-red-500">${item.maxTemp}<span class="text-lg">°</span></span>
+                                <span class="text-slate-300 mx-0.5 text-xl">/</span>
+                                <span class="text-blue-500">${item.minTemp}<span class="text-lg">°</span></span>
                             </div>
                         </div>
                     </div>
+                    ${timelineHtml}
                 `;
             } else {
-                contentHtml = `<div class="flex items-center justify-center py-2 text-slate-400"><p class="text-sm">データなし (${item.error})</p></div>`;
+                contentHtml = `<div class="flex items-center justify-center py-6 text-slate-400"><p class="text-sm">データなし (${item.error})</p></div>`;
             }
 
-            const panelHtml = `
-                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-shadow relative overflow-hidden">
+            grid.insertAdjacentHTML('beforeend', `
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between">
                     ${bgDecor}
-                    <div class="flex justify-between items-start mb-4">
+                    <div class="flex justify-between items-start mb-2">
                         <div>
                             <p class="text-sm font-semibold text-blue-600 mb-1">${formatDate(item.date)}</p>
                             <h3 class="text-lg font-bold text-slate-800">${item.name}</h3>
                         </div>
                         ${typeBadge}
                     </div>
-                    <p class="text-xs text-slate-500 mb-4 flex items-center gap-1">
-                        <i class="ph-fill ph-navigation-arrow"></i>
-                        時間: ${item.time}
-                    </p>
-                    <div class="mt-4 pt-4 border-t border-slate-100">
+                    <div class="mt-2 flex-grow flex flex-col justify-end">
                         ${contentHtml}
                     </div>
                 </div>
-            `;
-            
-            grid.insertAdjacentHTML('beforeend', panelHtml);
+            `);
         }
 
-        // 初期読み込み
         window.addEventListener('DOMContentLoaded', fetchWeather);
-
     </script>
 </body>
 </html>
-
-```
