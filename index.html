@@ -69,7 +69,7 @@
             </div>
         </div>
         <p class="text-xs text-slate-500">
-            ※気象庁データは時間ごとのタイムラインに対応していません。
+            ※気象庁データは時間ごとのタイムライン・波の予想に対応していません。
         </p>
     </footer>
 
@@ -150,16 +150,32 @@
                         if (!item.lat) {
                             item.available = false; item.error = '位置情報なし';
                         } else {
-                            // hourlyデータを追加で取得
+                            // 陸の気象データを取得
                             const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${item.lat}&longitude=${item.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&hourly=temperature_2m,precipitation_probability,weather_code&timezone=Asia%2FTokyo&forecast_days=16`);
                             const data = await res.json();
                             const dateIndex = data.daily.time.findIndex(t => t === item.date);
                             
+                            // 海の波データ（Marine API）を取得
+                            let waveMax = '--';
+                            try {
+                                const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${item.lat}&longitude=${item.lon}&daily=wave_height_max&timezone=Asia%2FTokyo`);
+                                if (mRes.ok) {
+                                    const mData = await mRes.json();
+                                    const mDateIndex = mData.daily.time.findIndex(t => t === item.date);
+                                    if (mDateIndex !== -1 && mData.daily.wave_height_max[mDateIndex] !== null) {
+                                        waveMax = mData.daily.wave_height_max[mDateIndex].toFixed(1);
+                                    }
+                                }
+                            } catch (e) {
+                                console.log('Marine data not available for this coordinate', e);
+                            }
+
                             if (dateIndex !== -1) {
                                 item.weatherCode = data.daily.weather_code[dateIndex];
                                 item.maxTemp = Math.round(data.daily.temperature_2m_max[dateIndex]);
                                 item.minTemp = Math.round(data.daily.temperature_2m_min[dateIndex]);
                                 item.pop = data.daily.precipitation_probability_max[dateIndex];
+                                item.waveMax = waveMax;
                                 item.available = true;
 
                                 // タイムライン用の時間帯データ抽出 (6, 9, 12, 15, 18, 21時)
@@ -183,7 +199,7 @@
                             }
                         }
                     } else {
-                        // JMA (タイムラインなし)
+                        // JMA (タイムライン・波高なし)
                         if (!item.jmaAreaCode) {
                             item.available = false; item.error = '日本国外のため取得不可';
                         } else {
@@ -262,6 +278,14 @@
                     `;
                 }
 
+                // 波高バッジのHTML (Open-Meteoでデータがある場合のみ)
+                const waveBadgeHtml = item.waveMax !== undefined ? `
+                    <div class="flex items-center gap-1 text-sm font-bold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded w-fit">
+                        <i class="ph-bold ph-waves"></i>
+                        <span>${item.waveMax !== '--' ? item.waveMax + 'm' : '--m'}</span>
+                    </div>
+                ` : '';
+
                 contentHtml = `
                     <div class="flex items-center justify-between">
                         <div class="flex flex-col items-start gap-1">
@@ -269,9 +293,12 @@
                                 <i class="${info.icon} text-5xl ${info.color}"></i>
                                 <div>
                                     <span class="block font-bold text-slate-700 text-lg">${info.label}</span>
-                                    <div class="flex items-center gap-1 text-sm font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded mt-1 w-fit">
-                                        <i class="ph-fill ph-drop"></i>
-                                        <span>${item.pop !== '--' && item.pop !== undefined ? item.pop + '%' : '--%'}</span>
+                                    <div class="flex flex-wrap items-center gap-2 mt-1">
+                                        <div class="flex items-center gap-1 text-sm font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded w-fit">
+                                            <i class="ph-fill ph-drop"></i>
+                                            <span>${item.pop !== '--' && item.pop !== undefined ? item.pop + '%' : '--%'}</span>
+                                        </div>
+                                        ${waveBadgeHtml}
                                     </div>
                                 </div>
                             </div>
