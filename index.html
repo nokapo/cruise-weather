@@ -52,7 +52,7 @@
         </div>
 
         <div id="weatherGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 hidden-content">
-            </div>
+        </div>
 
     </main>
 
@@ -69,20 +69,20 @@
             </div>
         </div>
         <p class="text-xs text-slate-500">
-            ※気象庁データは時間ごとのタイムライン・波・風の予想に対応していません。
+            ※気象庁データはタイムライン・波・風の予想、出入港時のピンポイント天気には対応していません。
         </p>
     </footer>
 
     <script>
-        // 旅程データ
+        // 出入港のターゲット時間を定義に追加
         const itinerary = [
-            { date: '2026-05-04', name: '東京 (出港)', type: 'embark', lat: 35.6267, lon: 139.7758, jmaAreaCode: '130000', time: '16:30' },
+            { date: '2026-05-04', name: '東京 (出港)', type: 'embark', lat: 35.6267, lon: 139.7758, jmaAreaCode: '130000', time: '16:30 出港', targetHour: '16:00' },
             { date: '2026-05-05', name: '終日航海', type: 'sea', lat: null, lon: null, jmaAreaCode: null, time: '-' },
-            { date: '2026-05-06', name: '済州島 (韓国)', type: 'port', lat: 33.5135, lon: 126.5414, jmaAreaCode: null, time: '13:00 - 21:00' },
-            { date: '2026-05-07', name: '八代 (熊本)', type: 'port', lat: 32.5074, lon: 130.6022, jmaAreaCode: '430000', time: '12:00 - 20:00' },
-            { date: '2026-05-08', name: '鹿児島', type: 'port', lat: 31.5966, lon: 130.5571, jmaAreaCode: '460100', time: '08:00 - 18:00' },
+            { date: '2026-05-06', name: '済州島 (韓国)', type: 'port', lat: 33.5135, lon: 126.5414, jmaAreaCode: null, time: '13:00 - 21:00', targetHour: '13:00' },
+            { date: '2026-05-07', name: '八代 (熊本)', type: 'port', lat: 32.5074, lon: 130.6022, jmaAreaCode: '430000', time: '12:00 - 20:00', targetHour: '12:00' },
+            { date: '2026-05-08', name: '鹿児島', type: 'port', lat: 31.5966, lon: 130.5571, jmaAreaCode: '460100', time: '08:00 - 18:00', targetHour: '08:00' },
             { date: '2026-05-09', name: '終日航海', type: 'sea', lat: null, lon: null, jmaAreaCode: null, time: '-' },
-            { date: '2026-05-10', name: '東京 (入港)', type: 'debark', lat: 35.6267, lon: 139.7758, jmaAreaCode: '130000', time: '08:00' }
+            { date: '2026-05-10', name: '東京 (入港)', type: 'debark', lat: 35.6267, lon: 139.7758, jmaAreaCode: '130000', time: '08:00 入港', targetHour: '08:00' }
         ];
 
         let currentSource = 'open-meteo';
@@ -143,34 +143,27 @@
             try {
                 for (const stop of itinerary) {
                     let item = { ...stop };
-                    
                     if (item.type === 'sea') {
                         item.available = false;
                     } else if (currentSource === 'open-meteo') {
                         if (!item.lat) {
                             item.available = false; item.error = '位置情報なし';
                         } else {
-                            // 陸の気象データを取得（風速の単位をm/sに指定: wind_speed_unit=ms）
                             const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${item.lat}&longitude=${item.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&hourly=temperature_2m,precipitation_probability,weather_code&timezone=Asia%2FTokyo&wind_speed_unit=ms&forecast_days=16`);
                             const data = await res.json();
                             const dateIndex = data.daily.time.findIndex(t => t === item.date);
-                            
-                            // 海の波データ（Marine API）を取得
                             let waveMax = '--';
                             try {
                                 const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${item.lat}&longitude=${item.lon}&daily=wave_height_max&timezone=Asia%2FTokyo`);
                                 if (mRes.ok) {
                                     const mData = await mRes.json();
                                     const mDateIndex = mData.daily.time.findIndex(t => t === item.date);
-                                    if (mDateIndex !== -1 && mData.daily.wave_height_max[mDateIndex] !== null) {
-                                        waveMax = mData.daily.wave_height_max[mDateIndex].toFixed(1);
-                                    }
+                                    if (mDateIndex !== -1 && mData.daily.wave_height_max[mDateIndex] !== null) waveMax = mData.daily.wave_height_max[mDateIndex].toFixed(1);
                                 }
-                            } catch (e) {
-                                console.log('Marine data not available for this coordinate', e);
-                            }
+                            } catch (e) {}
 
                             if (dateIndex !== -1) {
+                                // デフォルトは日別の天気コード
                                 item.weatherCode = data.daily.weather_code[dateIndex];
                                 item.maxTemp = Math.round(data.daily.temperature_2m_max[dateIndex]);
                                 item.minTemp = Math.round(data.daily.temperature_2m_min[dateIndex]);
@@ -178,36 +171,32 @@
                                 item.windMax = data.daily.wind_speed_10m_max[dateIndex] !== null ? Math.round(data.daily.wind_speed_10m_max[dateIndex]) : '--';
                                 item.waveMax = waveMax;
                                 item.available = true;
-
-                                // タイムライン用の時間帯データ抽出 (6, 9, 12, 15, 18, 21時)
                                 item.timeline = [];
+                                
                                 const targetHours = ['06:00', '09:00', '12:00', '15:00', '18:00', '21:00'];
                                 data.hourly.time.forEach((t, i) => {
                                     if (t.startsWith(item.date)) {
                                         const hour = t.split('T')[1];
+                                        
+                                        // 出入港時間の天気をメインアイコンに設定
+                                        if (hour === item.targetHour) {
+                                            item.weatherCode = data.hourly.weather_code[i];
+                                        }
+
                                         if (targetHours.includes(hour)) {
-                                            item.timeline.push({
-                                                time: hour.slice(0, 5),
-                                                temp: Math.round(data.hourly.temperature_2m[i]),
-                                                pop: data.hourly.precipitation_probability[i],
-                                                code: data.hourly.weather_code[i]
-                                            });
+                                            item.timeline.push({ time: hour.slice(0, 5), temp: Math.round(data.hourly.temperature_2m[i]), pop: data.hourly.precipitation_probability[i], code: data.hourly.weather_code[i] });
                                         }
                                     }
                                 });
-                            } else {
-                                item.available = false; item.error = '予報期間外';
-                            }
+                            } else { item.available = false; item.error = '予報期間外'; }
                         }
                     } else {
-                        // JMA (タイムライン・波・風なし)
                         if (!item.jmaAreaCode) {
                             item.available = false; item.error = '日本国外のため取得不可';
                         } else {
                             const res = await fetch(`https://www.jma.go.jp/bosai/forecast/data/forecast/${item.jmaAreaCode}.json`);
                             const data = await res.json();
                             let wCode = null, min = '--', max = '--', pop = '--';
-                            
                             data.forEach(report => {
                                 report.timeSeries.forEach(ts => {
                                     const idx = ts.timeDefines.findIndex(t => t.startsWith(item.date));
@@ -220,22 +209,15 @@
                                     }
                                 });
                             });
-                            
-                            if (wCode) {
-                                item.weatherCode = wCode;
-                                item.maxTemp = max; item.minTemp = min;
-                                item.pop = pop;
-                                item.available = true;
-                            } else {
-                                item.available = false; item.error = '予報期間外 (発表前)';
-                            }
+                            if (wCode) { item.weatherCode = wCode; item.maxTemp = max; item.minTemp = min; item.pop = pop; item.available = true; }
+                            else { item.available = false; item.error = '予報期間外 (発表前)'; }
                         }
                     }
                     renderPanel(item);
                 }
                 document.getElementById('updatedTimeText').innerText = `更新日時: ${new Date().toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
             } catch (error) {
-                grid.innerHTML = '<p class="text-red-500 col-span-full text-center">データの取得に失敗しました。再読み込みしてください。</p>';
+                grid.innerHTML = '<p class="text-red-500 col-span-full text-center">データの取得に失敗しました。</p>';
             } finally {
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('weatherGrid').style.display = 'grid';
@@ -246,50 +228,41 @@
         function renderPanel(item) {
             const grid = document.getElementById('weatherGrid');
             const info = item.available ? (currentSource === 'open-meteo' ? getOpenMeteoInfo(item.weatherCode) : getJMAInfo(item.weatherCode)) : null;
-            
-            const typeBadge = item.type !== 'sea' ? `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium h-fit">${item.type === 'embark' ? '出港' : item.type === 'debark' ? '入港' : '寄港'}</span>` : '';
+            const typeBadge = item.type !== 'sea' ? `<span class="bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0.5 rounded-full font-bold h-fit">${item.type === 'embark' ? '出港日' : item.type === 'debark' ? '入港日' : '寄港'}</span>` : '';
             const bgDecor = item.type === 'sea' ? `<div class="absolute -right-4 -top-4 opacity-5"><i class="ph-fill ph-anchor text-9xl"></i></div>` : '';
             
             let contentHtml = '';
             let timelineHtml = '';
 
             if (item.type === 'sea') {
-                contentHtml = `<div class="flex items-center justify-center py-6 text-slate-400"><p>終日クルージング</p></div>`;
+                contentHtml = `<div class="flex items-center justify-center py-6 text-slate-400 font-medium"><p>終日クルージング</p></div>`;
             } else if (item.available) {
-                // Timeline Generation (Open-Meteo only)
                 if (item.timeline && item.timeline.length > 0) {
                     const blocks = item.timeline.map(t => {
                         const tInfo = getOpenMeteoInfo(t.code);
-                        return `
-                            <div class="flex flex-col items-center min-w-[50px]">
-                                <span class="text-[10px] text-slate-500 mb-1">${t.time}</span>
-                                <i class="${tInfo.icon} text-2xl ${tInfo.color} mb-1"></i>
-                                <span class="text-xs font-bold text-slate-700">${t.temp}°</span>
-                                <span class="text-[10px] font-bold text-blue-500">${t.pop}%</span>
-                            </div>
-                        `;
+                        return `<div class="flex flex-col items-center min-w-[45px]"><span class="text-[9px] text-slate-500 mb-1">${t.time}</span><i class="${tInfo.icon} text-xl ${tInfo.color} mb-1"></i><span class="text-[11px] font-bold text-slate-700">${t.temp}°</span><span class="text-[9px] font-bold text-blue-500">${t.pop}%</span></div>`;
                     }).join('');
-                    
-                    timelineHtml = `
-                        <div class="mt-4 pt-3 border-t border-slate-100">
-                            <div class="flex overflow-x-auto gap-3 pb-2 no-scrollbar">
-                                ${blocks}
-                            </div>
-                        </div>
-                    `;
+                    timelineHtml = `<div class="mt-4 pt-3 border-t border-slate-100"><div class="flex overflow-x-auto gap-2.5 pb-1 no-scrollbar">${blocks}</div></div>`;
                 }
 
-                // アイコン付きバッジ群 (Open-Meteoでデータがある場合)
-                const popBadgeHtml = `<div class="flex items-center gap-1 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100"><i class="ph-fill ph-drop"></i><span>${item.pop !== '--' && item.pop !== undefined ? item.pop + '%' : '--%'}</span></div>`;
-                const waveBadgeHtml = item.waveMax !== undefined ? `<div class="flex items-center gap-1 text-xs font-bold text-cyan-600 bg-cyan-50 px-2 py-1 rounded border border-cyan-100"><i class="ph-bold ph-waves"></i><span>${item.waveMax !== '--' ? item.waveMax + 'm' : '--m'}</span></div>` : '';
-                const windBadgeHtml = item.windMax !== undefined ? `<div class="flex items-center gap-1 text-xs font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded border border-teal-100"><i class="ph-bold ph-wind"></i><span>${item.windMax !== '--' ? item.windMax + 'm/s' : '--m/s'}</span></div>` : '';
+                const popBadge = `<div class="flex items-center gap-1 text-[11px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100"><i class="ph-fill ph-drop"></i><span>${item.pop !== '--' && item.pop !== undefined ? item.pop + '%' : '--%'}</span></div>`;
+                const waveBadge = item.waveMax !== undefined ? `<div class="flex items-center gap-1 text-[11px] font-bold text-cyan-600 bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-100"><i class="ph-bold ph-waves"></i><span>${item.waveMax !== '--' ? item.waveMax + 'm' : '--m'}</span></div>` : '';
+                const windBadge = item.windMax !== undefined ? `<div class="flex items-center gap-1 text-[11px] font-bold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-100"><i class="ph-bold ph-wind"></i><span>${item.windMax !== '--' ? item.windMax + 'm/s' : '--m/s'}</span></div>` : '';
+
+                // 出入港時の天気のラベルを作成 (Open-Meteoの場合のみ)
+                const mainWeatherLabel = (currentSource === 'open-meteo' && item.targetHour) 
+                    ? `<span class="block text-[10px] text-blue-600 font-bold mb-0.5">${item.type === 'embark' ? '出港時' : '入港時'} (${item.targetHour}) の天気</span>` 
+                    : '';
 
                 contentHtml = `
                     <div class="flex flex-col gap-3">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-3">
                                 <i class="${info.icon} text-5xl ${info.color}"></i>
-                                <span class="font-bold text-slate-700 text-lg">${info.label}</span>
+                                <div class="flex flex-col justify-center">
+                                    ${mainWeatherLabel}
+                                    <span class="font-bold text-slate-700 text-lg leading-tight">${info.label}</span>
+                                </div>
                             </div>
                             <div class="text-right">
                                 <div class="text-3xl font-bold tracking-tighter">
@@ -299,10 +272,10 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="flex flex-wrap items-center gap-2">
-                            ${popBadgeHtml}
-                            ${waveBadgeHtml}
-                            ${windBadgeHtml}
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            ${popBadge}
+                            ${waveBadge}
+                            ${windBadge}
                         </div>
                     </div>
                     ${timelineHtml}
@@ -312,16 +285,17 @@
             }
 
             grid.insertAdjacentHTML('beforeend', `
-                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between">
+                <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md transition-shadow relative overflow-hidden flex flex-col">
                     ${bgDecor}
-                    <div class="flex justify-between items-start mb-2">
+                    <div class="flex justify-between items-start mb-1">
                         <div>
-                            <p class="text-sm font-semibold text-blue-600 mb-1">${formatDate(item.date)}</p>
-                            <h3 class="text-lg font-bold text-slate-800">${item.name}</h3>
+                            <p class="text-[11px] font-bold text-blue-600 mb-0.5">${formatDate(item.date)}</p>
+                            <h3 class="text-lg font-bold text-slate-800 leading-tight">${item.name}</h3>
                         </div>
                         ${typeBadge}
                     </div>
-                    <div class="mt-2 flex-grow flex flex-col justify-end">
+                    ${item.type !== 'sea' ? `<p class="text-[11px] text-slate-500 flex items-center gap-1 mb-3"><i class="ph ph-clock"></i>時間: ${item.time}</p>` : ''}
+                    <div class="flex-grow flex flex-col justify-end">
                         ${contentHtml}
                     </div>
                 </div>
